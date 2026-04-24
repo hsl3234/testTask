@@ -1,0 +1,13 @@
+/vendor/
+/.env
+/composer.lock
+/public/openapi.json
+.DS_Store
+.idea/
+.vscode/
+
+# phalcon-migrations (лог версии по умолчанию — файл, не БД)
+/.phalcon/
+
+# кэш Volt и прочее из var/
+/var/cache/
