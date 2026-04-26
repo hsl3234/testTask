@@ -5,7 +5,7 @@ import Modal from './Modal.js';
 /**
  * @typedef {Object} Category
  * @property {number}      id
- * @property {number|null} parent_id
+ * @property {number|null} parentId
  * @property {string}      name
  * @property {string}      path
  */
@@ -16,7 +16,7 @@ import Modal from './Modal.js';
  * @property {string}        name
  * @property {string|null}   content
  * @property {string}        price
- * @property {boolean}       in_stock
+ * @property {boolean}       inStock
  * @property {{id:number, name:string, path:string}} category
  */
 
@@ -32,25 +32,30 @@ export default {
     emits: ['categories-changed'],
     setup(props) {
         const filters = reactive({
-            category_id: '',
-            in_stock: '',
+            categoryId: '',
+            inStock: '',
             page: 1,
-            per_page: 10,
+            perPage: 10,
         });
 
         /** @type {import('vue').Ref<Product[]>} */
         const items = ref([]);
-        const meta = ref({ page: 1, per_page: 10, total: 0, aggregates: { in_stock_count: 0, in_stock_total_price: '0.00' } });
+        const meta = ref({
+            page: 1,
+            perPage: 10,
+            total: 0,
+            aggregates: { inStockCount: 0, inStockTotalPrice: '0.00' },
+        });
         const loading = ref(false);
         const error = ref('');
 
-        /** @type {import('vue').Ref<null | Partial<Product & {category_id:number}>>} */
+        /** @type {import('vue').Ref<null | Partial<Product & {categoryId:number}>>} */
         const editing = ref(null);
         const editingError = ref('');
 
         const totalPages = computed(() =>
-            meta.value.per_page > 0
-                ? Math.max(1, Math.ceil(meta.value.total / meta.value.per_page))
+            meta.value.perPage > 0
+                ? Math.max(1, Math.ceil(meta.value.total / meta.value.perPage))
                 : 1,
         );
 
@@ -64,10 +69,10 @@ export default {
             error.value = '';
             try {
                 const response = await props.api.get('/products', {
-                    category_id: filters.category_id || undefined,
-                    in_stock: filters.in_stock === '' ? undefined : filters.in_stock,
+                    categoryId: filters.categoryId || undefined,
+                    inStock: filters.inStock === '' ? undefined : filters.inStock,
                     page: filters.page,
-                    per_page: filters.per_page,
+                    perPage: filters.perPage,
                 });
                 items.value = response.data;
                 meta.value = response.meta;
@@ -78,7 +83,7 @@ export default {
             }
         }
 
-        watch(() => [filters.category_id, filters.in_stock, filters.per_page], () => {
+        watch(() => [filters.categoryId, filters.inStock, filters.perPage], () => {
             filters.page = 1;
             reload();
         });
@@ -95,8 +100,8 @@ export default {
                 name: '',
                 content: '',
                 price: '0.00',
-                in_stock: true,
-                category_id: props.categories[0]?.id ?? 0,
+                inStock: true,
+                categoryId: props.categories[0]?.id ?? 0,
             };
             editingError.value = '';
         }
@@ -113,8 +118,8 @@ export default {
                 name: product.name,
                 content: product.content ?? '',
                 price: product.price,
-                in_stock: product.in_stock,
-                category_id: product.category.id,
+                inStock: product.inStock,
+                categoryId: product.category.id,
             };
             editingError.value = '';
         }
@@ -132,8 +137,8 @@ export default {
                 name: form.name,
                 content: form.content === '' ? null : form.content,
                 price: Number(form.price),
-                in_stock: !!form.in_stock,
-                category_id: Number(form.category_id),
+                inStock: !!form.inStock,
+                categoryId: Number(form.categoryId),
             };
             try {
                 if (form.id) {
@@ -184,18 +189,18 @@ export default {
             </div>
 
             <div class="filters">
-                <select v-model="filters.category_id">
+                <select v-model="filters.categoryId">
                     <option value="">Все категории</option>
                     <option v-for="c in categories" :key="c.id" :value="c.id">
                         {{ c.path }} {{ c.name }}
                     </option>
                 </select>
-                <select v-model="filters.in_stock">
+                <select v-model="filters.inStock">
                     <option value="">Любая доступность</option>
                     <option value="1">В наличии</option>
                     <option value="0">Нет в наличии</option>
                 </select>
-                <select v-model.number="filters.per_page">
+                <select v-model.number="filters.perPage">
                     <option :value="10">10 / стр.</option>
                     <option :value="20">20 / стр.</option>
                     <option :value="50">50 / стр.</option>
@@ -205,11 +210,11 @@ export default {
             <div class="aggregate">
                 <div class="card">
                     <div class="label">В наличии, шт. (с учётом фильтров)</div>
-                    <div class="value">{{ meta.aggregates.in_stock_count }}</div>
+                    <div class="value">{{ meta.aggregates.inStockCount }}</div>
                 </div>
                 <div class="card">
                     <div class="label">Сумма в наличии (с учётом фильтров)</div>
-                    <div class="value">{{ meta.aggregates.in_stock_total_price }}</div>
+                    <div class="value">{{ meta.aggregates.inStockTotalPrice }}</div>
                 </div>
             </div>
 
@@ -236,8 +241,8 @@ export default {
                         <td>{{ p.price }}</td>
                         <td>{{ p.category.name }}</td>
                         <td>
-                            <span class="badge" :class="p.in_stock ? 'ok' : 'no'">
-                                {{ p.in_stock ? 'В наличии' : 'Нет' }}
+                            <span class="badge" :class="p.inStock ? 'ok' : 'no'">
+                                {{ p.inStock ? 'В наличии' : 'Нет' }}
                             </span>
                         </td>
                         <td>
@@ -262,13 +267,13 @@ export default {
                 <div class="form-row"><label>Цена</label><input type="number" min="0" step="0.01" v-model="editing.price" /></div>
                 <div class="form-row">
                     <label>Категория</label>
-                    <select v-model.number="editing.category_id">
+                    <select v-model.number="editing.categoryId">
                         <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.path }} {{ c.name }}</option>
                     </select>
                 </div>
                 <div class="form-row">
                     <label>В наличии</label>
-                    <label><input type="checkbox" v-model="editing.in_stock" /> Доступен</label>
+                    <label><input type="checkbox" v-model="editing.inStock" /> Доступен</label>
                 </div>
                 <div v-if="editingError" class="error">{{ editingError }}</div>
                 <div class="actions">
@@ -279,4 +284,3 @@ export default {
         </section>
     `,
 };
-

@@ -5,7 +5,7 @@ import Modal from './Modal.js';
 /**
  * @typedef {Object} Category
  * @property {number}      id
- * @property {number|null} parent_id
+ * @property {number|null} parentId
  * @property {string}      name
  * @property {string}      path
  */
@@ -57,8 +57,8 @@ function toTree(flat) {
     for (const c of flat) byId[c.id] = { ...c, children: [] };
     const roots = [];
     for (const c of Object.values(byId)) {
-        if (c.parent_id && byId[c.parent_id]) {
-            byId[c.parent_id].children.push(c);
+        if (c.parentId && byId[c.parentId]) {
+            byId[c.parentId].children.push(c);
         } else {
             roots.push(c);
         }
@@ -85,7 +85,7 @@ export default {
     setup(props, { emit }) {
         const error = ref('');
 
-        /** @type {import('vue').Ref<null | { id: number, name: string, parent_id: number|null }>} */
+        /** @type {import('vue').Ref<null | { id: number, name: string, parentId: number|null }>} */
         const editing = ref(null);
         const editingError = ref('');
 
@@ -98,7 +98,7 @@ export default {
          * @returns {void}
          */
         function openCreate(parentId = null) {
-            editing.value = { id: 0, name: '', parent_id: parentId };
+            editing.value = { id: 0, name: '', parentId: parentId };
             editingError.value = '';
         }
 
@@ -109,7 +109,7 @@ export default {
          * @returns {void}
          */
         function openEdit(category) {
-            editing.value = { id: category.id, name: category.name, parent_id: category.parent_id };
+            editing.value = { id: category.id, name: category.name, parentId: category.parentId };
             editingError.value = '';
         }
 
@@ -122,7 +122,7 @@ export default {
             const form = editing.value;
             if (!form) return;
             editingError.value = '';
-            const payload = { name: form.name, parent_id: form.parent_id || null };
+            const payload = { name: form.name, parentId: form.parentId || null };
             try {
                 if (form.id) {
                     await props.api.put('/categories/' + form.id, payload);
@@ -180,7 +180,7 @@ export default {
                 <div class="form-row"><label>Название</label><input v-model="editing.name" /></div>
                 <div class="form-row">
                     <label>Родитель</label>
-                    <select v-model="editing.parent_id">
+                    <select v-model="editing.parentId">
                         <option :value="null">— Корень —</option>
                         <option v-for="c in categories" :key="c.id" :value="c.id" :disabled="c.id === editing.id">
                             {{ c.path }} {{ c.name }}

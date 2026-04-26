@@ -40,7 +40,7 @@ use OpenApi\Attributes as OA;
     required: ['id', 'name', 'path'],
     properties: [
         new OA\Property(property: 'id', type: 'integer'),
-        new OA\Property(property: 'parent_id', type: 'integer', nullable: true),
+        new OA\Property(property: 'parentId', type: 'integer', nullable: true),
         new OA\Property(property: 'name', type: 'string'),
         new OA\Property(property: 'path', type: 'string', example: '/1/2/'),
     ],
@@ -51,7 +51,7 @@ use OpenApi\Attributes as OA;
     required: ['id', 'name', 'path', 'children'],
     properties: [
         new OA\Property(property: 'id', type: 'integer'),
-        new OA\Property(property: 'parent_id', type: 'integer', nullable: true),
+        new OA\Property(property: 'parentId', type: 'integer', nullable: true),
         new OA\Property(property: 'name', type: 'string'),
         new OA\Property(property: 'path', type: 'string'),
         new OA\Property(property: 'children', type: 'array', items: new OA\Items(ref: '#/components/schemas/CategoryNode')),
@@ -63,19 +63,19 @@ use OpenApi\Attributes as OA;
     required: ['name'],
     properties: [
         new OA\Property(property: 'name', type: 'string', maxLength: 191),
-        new OA\Property(property: 'parent_id', type: 'integer', nullable: true),
+        new OA\Property(property: 'parentId', type: 'integer', nullable: true),
     ],
 )]
 #[OA\Schema(
     schema: 'Product',
     type: 'object',
-    required: ['id', 'name', 'price', 'in_stock', 'category'],
+    required: ['id', 'name', 'price', 'inStock', 'category'],
     properties: [
         new OA\Property(property: 'id', type: 'integer'),
         new OA\Property(property: 'name', type: 'string'),
         new OA\Property(property: 'content', type: 'string', nullable: true),
         new OA\Property(property: 'price', type: 'string', example: '1299.99'),
-        new OA\Property(property: 'in_stock', type: 'boolean'),
+        new OA\Property(property: 'inStock', type: 'boolean'),
         new OA\Property(
             property: 'category',
             type: 'object',
@@ -90,13 +90,13 @@ use OpenApi\Attributes as OA;
 #[OA\Schema(
     schema: 'ProductInput',
     type: 'object',
-    required: ['name', 'content', 'price', 'in_stock', 'category_id'],
+    required: ['name', 'content', 'price', 'inStock', 'categoryId'],
     properties: [
         new OA\Property(property: 'name', type: 'string'),
         new OA\Property(property: 'content', type: 'string', nullable: true),
         new OA\Property(property: 'price', type: 'number', format: 'float'),
-        new OA\Property(property: 'in_stock', type: 'boolean'),
-        new OA\Property(property: 'category_id', type: 'integer'),
+        new OA\Property(property: 'inStock', type: 'boolean'),
+        new OA\Property(property: 'categoryId', type: 'integer'),
     ],
 )]
 #[OA\Schema(
@@ -106,8 +106,8 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'name', type: 'string'),
         new OA\Property(property: 'content', type: 'string', nullable: true),
         new OA\Property(property: 'price', type: 'number', format: 'float'),
-        new OA\Property(property: 'in_stock', type: 'boolean'),
-        new OA\Property(property: 'category_id', type: 'integer'),
+        new OA\Property(property: 'inStock', type: 'boolean'),
+        new OA\Property(property: 'categoryId', type: 'integer'),
     ],
 )]
 #[OA\Schema(
@@ -119,18 +119,18 @@ use OpenApi\Attributes as OA;
         new OA\Property(
             property: 'meta',
             type: 'object',
-            required: ['page', 'per_page', 'total', 'aggregates'],
+            required: ['page', 'perPage', 'total', 'aggregates'],
             properties: [
                 new OA\Property(property: 'page', type: 'integer'),
-                new OA\Property(property: 'per_page', type: 'integer'),
+                new OA\Property(property: 'perPage', type: 'integer'),
                 new OA\Property(property: 'total', type: 'integer'),
                 new OA\Property(
                     property: 'aggregates',
                     type: 'object',
-                    required: ['in_stock_count', 'in_stock_total_price'],
+                    required: ['inStockCount', 'inStockTotalPrice'],
                     properties: [
-                        new OA\Property(property: 'in_stock_count', type: 'integer'),
-                        new OA\Property(property: 'in_stock_total_price', type: 'string', example: '12345.67'),
+                        new OA\Property(property: 'inStockCount', type: 'integer'),
+                        new OA\Property(property: 'inStockTotalPrice', type: 'string', example: '12345.67'),
                     ],
                 ),
             ],

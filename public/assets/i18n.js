@@ -3,11 +3,11 @@ export const FIELD_RU = {
     name: 'Название',
     content: 'Описание',
     price: 'Цена',
-    in_stock: 'Наличие',
-    category_id: 'Категория',
-    parent_id: 'Родитель',
+    inStock: 'Наличие',
+    categoryId: 'Категория',
+    parentId: 'Родитель',
     page: 'Страница',
-    per_page: 'На странице',
+    perPage: 'На странице',
 };
 
 /** @type {Record<string, string>} */

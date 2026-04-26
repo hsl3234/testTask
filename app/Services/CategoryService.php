@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Exceptions\ConflictException;
 use App\Exceptions\NotFoundException;
 use App\Exceptions\ValidationException;
+use App\Http\RequestKeys;
 use App\Models\Category;
 use App\Repositories\CategoryRepository;
 
@@ -28,7 +29,7 @@ final class CategoryService
     /**
      * List all categories as a flat list (sorted by materialized path).
      *
-     * @return list<array{id: int, parent_id: int|null, name: string, path: string}> All categories.
+     * @return list<array{id: int, parentId: int|null, name: string, path: string}> All categories.
      */
     public function listFlat(): array
     {
@@ -36,10 +37,10 @@ final class CategoryService
         $out = [];
         foreach ($rows as $row) {
             $out[] = [
-                'id'        => (int) $row['id'],
-                'parent_id' => $row['parent_id'] !== null ? (int) $row['parent_id'] : null,
-                'name'      => (string) $row['name'],
-                'path'      => (string) $row['path'],
+                'id'       => (int) $row['id'],
+                'parentId' => $row['parent_id'] !== null ? (int) $row['parent_id'] : null,
+                'name'     => (string) $row['name'],
+                'path'     => (string) $row['path'],
             ];
         }
         return $out;
@@ -59,7 +60,7 @@ final class CategoryService
         }
         $roots = [];
         foreach ($byId as $id => &$node) {
-            $parentId = $node['parent_id'];
+            $parentId = $node['parentId'];
             if ($parentId !== null && isset($byId[$parentId])) {
                 $byId[$parentId]['children'][] = &$node;
             } else {
@@ -99,6 +100,7 @@ final class CategoryService
      */
     public function create(array $input): array
     {
+        $input = RequestKeys::mergeJsonInput($input);
         $name = $this->validateName($input['name'] ?? null);
         $parentId = $this->validateParentId($input['parent_id'] ?? null, null);
 
@@ -120,6 +122,7 @@ final class CategoryService
      */
     public function update(int $id, array $input): array
     {
+        $input = RequestKeys::mergeJsonInput($input);
         $category = $this->categories->findById($id);
         if ($category === null) {
             throw new NotFoundException('Category not found');
@@ -252,10 +255,10 @@ final class CategoryService
     private function present(Category $category): array
     {
         return [
-            'id'        => (int) $category->id,
-            'parent_id' => $category->parent_id !== null ? (int) $category->parent_id : null,
-            'name'      => (string) $category->name,
-            'path'      => (string) $category->path,
+            'id'       => (int) $category->id,
+            'parentId' => $category->parent_id !== null ? (int) $category->parent_id : null,
+            'name'     => (string) $category->name,
+            'path'     => (string) $category->path,
         ];
     }
 }

@@ -17,7 +17,7 @@ const App = {
         /** @type {import('vue').Ref<'products'|'categories'>} */
         const view = ref('products');
 
-        /** @type {import('vue').Ref<Array<{id:number, parent_id:number|null, name:string, path:string}>>} */
+        /** @type {import('vue').Ref<Array<{id:number, parentId:number|null, name:string, path:string}>>} */
         const categories = ref([]);
         const error = ref('');
 
