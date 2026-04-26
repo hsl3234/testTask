@@ -24,7 +24,8 @@ final class AuthService
      *
      * @param string|null $authorizationHeader Full header, e.g. `Bearer abc123`.
      *
-     * @throws UnauthorizedException When the header is missing, malformed or unknown.
+     * @throws UnauthorizedException When the header is missing, malformed,
+     *                               unknown or expired.
      *
      * @return void
      */
@@ -43,7 +44,7 @@ final class AuthService
             throw new UnauthorizedException('Empty bearer token');
         }
 
-        if ($this->tokens->findByToken($token) === null) {
+        if ($this->tokens->findActive($token) === null) {
             throw new UnauthorizedException('Invalid bearer token');
         }
     }

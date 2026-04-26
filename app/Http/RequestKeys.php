@@ -13,9 +13,10 @@ final class RequestKeys
      * @var array<string, string> alias => canonical
      */
     private const JSON_ALIASES = [
-        'categoryId' => 'category_id',
-        'inStock'     => 'in_stock',
-        'parentId'    => 'parent_id',
+        'categoryId'   => 'category_id',
+        'inStock'      => 'in_stock',
+        'parentId'     => 'parent_id',
+        'refreshToken' => 'refresh_token',
     ];
 
     private const QUERY_ALIASES = [

@@ -4,6 +4,8 @@ const API_MESSAGE_RU = {
     'Malformed Authorization header': 'Некорректный заголовок Authorization',
     'Empty bearer token': 'Пустой токен Bearer',
     'Invalid bearer token': 'Неверный токен Bearer',
+    'Invalid login or password': 'Неверный логин или пароль',
+    'Invalid or expired refresh token': 'Срок сессии истёк, войдите заново',
     Unauthorized: 'Нет доступа',
     'Resource not found': 'Ресурс не найден',
     'Product not found': 'Товар не найден',
@@ -38,31 +40,75 @@ function translateApiMessage(message) {
  */
 
 /**
- * Create a small fetch-based API client that always sends the current Bearer token.
- *
- * @param {() => string} tokenGetter Function returning the current bearer token.
- * @returns {ApiClient} Configured client.
+ * @typedef {Object} ApiAuth
+ * @property {() => string} getAccessToken     Current access token (or empty).
+ * @property {() => string} getRefreshToken    Current refresh token (or empty).
+ * @property {(pair: { accessToken: string, refreshToken: string }) => void} onTokenRefreshed
+ *                                              Persist a freshly rotated pair.
+ * @property {() => void} onAuthFailed          Called when refresh fails — caller should drop session.
  */
-export function createApi(tokenGetter) {
+
+/**
+ * Create a small fetch-based API client with automatic refresh-on-401.
+ *
+ * On the first 401 from a protected endpoint the client posts the current
+ * refresh token to `/auth/refresh`; on success it stores the new pair and
+ * retries the original request once. On failure it calls `onAuthFailed` so
+ * the host application can return the user to the login screen.
+ *
+ * @param {ApiAuth} auth Token storage hooks.
+ * @returns {ApiClient}
+ */
+export function createApi(auth) {
     const base = window.__API_BASE__ || '/api';
+    let refreshPromise = null;
 
     /**
-     * Execute an HTTP request and parse the JSON response.
+     * Run a refresh round-trip, deduplicating concurrent attempts.
      *
-     * @param {string} method HTTP method.
-     * @param {string} path   Path relative to the API base.
-     * @param {{ body?: any, query?: Record<string, any> }} [options] Optional body/query.
-     * @returns {Promise<any>} Parsed response body (or undefined for 204).
+     * @returns {Promise<boolean>} True on success, false otherwise.
      */
-    async function request(method, path, options = {}) {
-        const token = tokenGetter();
-        const headers = { 'Accept': 'application/json' };
-        if (token) {
-            headers['Authorization'] = 'Bearer ' + token;
-        }
-        if (options.body !== undefined) {
-            headers['Content-Type'] = 'application/json';
-        }
+    async function refreshTokens() {
+        if (refreshPromise) return refreshPromise;
+        const refreshToken = auth.getRefreshToken();
+        if (!refreshToken) return false;
+
+        refreshPromise = (async () => {
+            try {
+                const response = await fetch(base + '/auth/refresh', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    body: JSON.stringify({ refreshToken }),
+                });
+                if (!response.ok) return false;
+                const data = await response.json();
+                auth.onTokenRefreshed({
+                    accessToken: data.accessToken,
+                    refreshToken: data.refreshToken,
+                });
+                return true;
+            } catch (e) {
+                return false;
+            } finally {
+                refreshPromise = null;
+            }
+        })();
+        return refreshPromise;
+    }
+
+    /**
+     * Build a fetch request from method + path + options.
+     *
+     * @param {string} method
+     * @param {string} path
+     * @param {{ body?: any, query?: Record<string, any> }} options
+     * @returns {Promise<Response>}
+     */
+    function send(method, path, options) {
+        const headers = { Accept: 'application/json' };
+        const access = auth.getAccessToken();
+        if (access) headers['Authorization'] = 'Bearer ' + access;
+        if (options.body !== undefined) headers['Content-Type'] = 'application/json';
         let url = base + path;
         if (options.query) {
             const usp = new URLSearchParams();
@@ -73,12 +119,32 @@ export function createApi(tokenGetter) {
             const qs = usp.toString();
             if (qs) url += '?' + qs;
         }
-
-        const response = await fetch(url, {
+        return fetch(url, {
             method,
             headers,
             body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
         });
+    }
+
+    /**
+     * Execute an HTTP request, transparently refreshing the access token on 401.
+     *
+     * @param {string} method
+     * @param {string} path
+     * @param {{ body?: any, query?: Record<string, any> }} [options]
+     * @returns {Promise<any>}
+     */
+    async function request(method, path, options = {}) {
+        let response = await send(method, path, options);
+
+        if (response.status === 401 && auth.getRefreshToken()) {
+            const ok = await refreshTokens();
+            if (ok) {
+                response = await send(method, path, options);
+            } else {
+                auth.onAuthFailed();
+            }
+        }
 
         if (response.status === 204) return undefined;
 
@@ -93,6 +159,7 @@ export function createApi(tokenGetter) {
             const err = new Error(message);
             err.status = response.status;
             err.details = data && data.error ? data.error : undefined;
+            if (response.status === 401) auth.onAuthFailed();
             throw err;
         }
         return data;
