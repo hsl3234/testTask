@@ -111,6 +111,34 @@ use OpenApi\Attributes as OA;
     ],
 )]
 #[OA\Schema(
+    schema: 'AuthLoginRequest',
+    type: 'object',
+    required: ['login', 'password'],
+    properties: [
+        new OA\Property(property: 'login', type: 'string', example: 'admin'),
+        new OA\Property(property: 'password', type: 'string', format: 'password'),
+    ],
+)]
+#[OA\Schema(
+    schema: 'AuthRefreshRequest',
+    type: 'object',
+    required: ['refreshToken'],
+    properties: [
+        new OA\Property(property: 'refreshToken', type: 'string'),
+    ],
+)]
+#[OA\Schema(
+    schema: 'AuthTokenResponse',
+    type: 'object',
+    required: ['accessToken', 'refreshToken', 'tokenType', 'expiresIn'],
+    properties: [
+        new OA\Property(property: 'accessToken', type: 'string', description: 'Bearer access token used in the `Authorization` header.'),
+        new OA\Property(property: 'refreshToken', type: 'string', description: 'Single-use refresh token.'),
+        new OA\Property(property: 'tokenType', type: 'string', example: 'Bearer'),
+        new OA\Property(property: 'expiresIn', type: 'integer', description: 'Access token lifetime in seconds.', example: 900),
+    ],
+)]
+#[OA\Schema(
     schema: 'ProductListResponse',
     type: 'object',
     required: ['data', 'meta'],

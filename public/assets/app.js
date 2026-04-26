@@ -1,18 +1,25 @@
-import { createApp, ref, reactive, computed, onMounted, watch } from 'vue';
+import { createApp, ref, computed, onMounted } from 'vue';
 import { createApi } from './api.js';
 import ProductsPanel from './components/ProductsPanel.js';
 import CategoriesPanel from './components/CategoriesPanel.js';
+import LoginView from './components/LoginView.js';
+
+const ACCESS_KEY = 'api_access_token';
+const REFRESH_KEY = 'api_refresh_token';
 
 /**
- * Root SPA component: token handling, side navigation, and routing between
+ * Root SPA component: login gating, token rotation, and switching between
  * the two main panels (products / categories).
  */
 const App = {
-    components: { ProductsPanel, CategoriesPanel },
+    components: { ProductsPanel, CategoriesPanel, LoginView },
     setup() {
         /** @type {import('vue').Ref<string>} */
-        const token = ref(localStorage.getItem('api_token') || '');
-        const api = createApi(() => token.value);
+        const accessToken = ref(localStorage.getItem(ACCESS_KEY) || '');
+        /** @type {import('vue').Ref<string>} */
+        const refreshToken = ref(localStorage.getItem(REFRESH_KEY) || '');
+
+        const isAuthenticated = computed(() => Boolean(accessToken.value));
 
         /** @type {import('vue').Ref<'products'|'categories'>} */
         const view = ref('products');
@@ -20,6 +27,39 @@ const App = {
         /** @type {import('vue').Ref<Array<{id:number, parentId:number|null, name:string, path:string}>>} */
         const categories = ref([]);
         const error = ref('');
+
+        /**
+         * Persist a freshly issued or rotated token pair.
+         *
+         * @param {{ accessToken: string, refreshToken: string }} pair
+         * @returns {void}
+         */
+        function storeTokens(pair) {
+            accessToken.value = pair.accessToken;
+            refreshToken.value = pair.refreshToken;
+            localStorage.setItem(ACCESS_KEY, pair.accessToken);
+            localStorage.setItem(REFRESH_KEY, pair.refreshToken);
+        }
+
+        /**
+         * Drop the in-memory + persisted session.
+         *
+         * @returns {void}
+         */
+        function clearTokens() {
+            accessToken.value = '';
+            refreshToken.value = '';
+            localStorage.removeItem(ACCESS_KEY);
+            localStorage.removeItem(REFRESH_KEY);
+            categories.value = [];
+        }
+
+        const api = createApi({
+            getAccessToken: () => accessToken.value,
+            getRefreshToken: () => refreshToken.value,
+            onTokenRefreshed: storeTokens,
+            onAuthFailed: clearTokens,
+        });
 
         /**
          * Fetch the flat list of categories (shared across both panels).
@@ -36,42 +76,47 @@ const App = {
         }
 
         /**
-         * Persist the Bearer token to localStorage and reload categories.
+         * Handle the `authenticated` event from {@link LoginView}.
          *
-         * @param {string} value New token value.
-         * @returns {void}
+         * @param {{ accessToken: string, refreshToken: string }} pair
          */
-        function setToken(value) {
-            token.value = value;
-            localStorage.setItem('api_token', value);
+        function onAuthenticated(pair) {
+            storeTokens(pair);
+            error.value = '';
             reloadCategories();
         }
 
+        /**
+         * Drop the session and return to the login screen.
+         *
+         * @returns {void}
+         */
+        function logout() {
+            clearTokens();
+        }
+
         onMounted(() => {
-            if (token.value) {
+            if (isAuthenticated.value) {
                 reloadCategories();
             }
         });
 
-        return { token, setToken, view, categories, reloadCategories, error, api };
+        return {
+            isAuthenticated,
+            view,
+            categories,
+            reloadCategories,
+            onAuthenticated,
+            logout,
+            error,
+            api,
+        };
     },
     template: /* html */ `
-        <div class="layout">
+        <LoginView v-if="!isAuthenticated" @authenticated="onAuthenticated" />
+        <div v-else class="layout">
             <aside class="sidebar">
                 <h1>Админка</h1>
-                <div class="token-box">
-                    <input
-                        type="password"
-                        placeholder="Токен Bearer"
-                        :value="token"
-                        @change="e => setToken(e.target.value)"
-                    />
-                </div>
-                <div v-if="!token" class="muted" style="font-size: 13px;">
-                    Введите API-токен. Демо-токен из сида:
-                    <code>demo-token-please-change</code>.
-                </div>
-
                 <h2>Разделы</h2>
                 <button class="secondary" style="width:100%; margin-bottom: 8px; text-align:left;"
                     :style="view === 'products' ? 'background: var(--panel-alt)' : ''"
@@ -80,26 +125,23 @@ const App = {
                     :style="view === 'categories' ? 'background: var(--panel-alt)' : ''"
                     @click="view = 'categories'">Категории</button>
 
+                <button class="secondary logout" @click="logout">Выйти</button>
+
                 <div v-if="error" class="error" style="margin-top: 16px;">{{ error }}</div>
             </aside>
             <main class="main">
-                <div v-if="!token" class="muted" style="padding: 40px; text-align: center; font-size: 15px;">
-                    Введите валидный API-токен в боковой панели, чтобы начать.
-                </div>
-                <template v-else>
-                    <ProductsPanel
-                        v-if="view === 'products'"
-                        :api="api"
-                        :categories="categories"
-                        @categories-changed="reloadCategories"
-                    />
-                    <CategoriesPanel
-                        v-else
-                        :api="api"
-                        :categories="categories"
-                        @changed="reloadCategories"
-                    />
-                </template>
+                <ProductsPanel
+                    v-if="view === 'products'"
+                    :api="api"
+                    :categories="categories"
+                    @categories-changed="reloadCategories"
+                />
+                <CategoriesPanel
+                    v-else
+                    :api="api"
+                    :categories="categories"
+                    @changed="reloadCategories"
+                />
             </main>
         </div>
     `,

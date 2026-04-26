@@ -35,6 +35,8 @@ abstract class BaseApiController extends Controller
         'docs/openapi',
         'docs/ui',
         'notfound/index',
+        'auth/login',
+        'auth/refresh',
     ];
 
     /**

@@ -5,7 +5,10 @@ declare(strict_types=1);
 use App\Repositories\ApiTokenRepository;
 use App\Repositories\CategoryRepository;
 use App\Repositories\ProductRepository;
+use App\Repositories\RefreshTokenRepository;
+use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Services\AuthTokenService;
 use App\Services\CategoryService;
 use App\Services\ProductService;
 use Phalcon\Db\Adapter\Pdo\Mysql;
@@ -69,6 +72,12 @@ return static function (DiInterface $di, string $rootPath): void {
     $di->setShared(ApiTokenRepository::class, function () {
         return new ApiTokenRepository();
     });
+    $di->setShared(UserRepository::class, function () {
+        return new UserRepository();
+    });
+    $di->setShared(RefreshTokenRepository::class, function () {
+        return new RefreshTokenRepository();
+    });
 
     $di->setShared(CategoryService::class, function () use ($di) {
         return new CategoryService($di->getShared(CategoryRepository::class));
@@ -81,5 +90,12 @@ return static function (DiInterface $di, string $rootPath): void {
     });
     $di->setShared(AuthService::class, function () use ($di) {
         return new AuthService($di->getShared(ApiTokenRepository::class));
+    });
+    $di->setShared(AuthTokenService::class, function () use ($di) {
+        return new AuthTokenService(
+            $di->getShared(UserRepository::class),
+            $di->getShared(ApiTokenRepository::class),
+            $di->getShared(RefreshTokenRepository::class),
+        );
     });
 };

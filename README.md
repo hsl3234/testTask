@@ -18,9 +18,9 @@ Volt и одностраничное приложение на Vue 3 (Compositio
 | **Агрегаты** по товарам в наличии: количество и сумма | `meta.aggregates.inStockCount`, `inStockTotalPrice`; те же фильтры, в подсчёте только `inStock = true` (см. «Семантика агрегатов») |
 | **CRUD товаров** | `GET/POST/PUT/DELETE /api/products`, `GET /api/products/{id}` |
 | **CRUD категорий** (в т.ч. подкатегории) | `GET/POST/PUT/DELETE /api/categories`, в JSON — `parentId` (алиас: `parent_id`) |
-| **Bearer Token** | Заголовок `Authorization: Bearer <token>`, таблица `api_tokens` |
+| **Bearer Token** | Заголовок `Authorization: Bearer <token>`. Источники токенов: вход админа в SPA через `POST /api/auth/login` (+ refresh-ротация) либо статический ключ из `api_tokens` для curl/демо. |
 | **Ошибки и HTTP-коды**, ответы **JSON** | Единый формат `error`, коды 401/404/409/422 и др.; `Content-Type: application/json` |
-| **MySQL**, **индексы** под фильтры и пагинацию | См. раздел «База данных и индексы», миграция [`db/migrations/1.0.0/shop.php`](db/migrations/1.0.0/shop.php) |
+| **MySQL**, **индексы** под фильтры и пагинацию | См. раздел «База данных и индексы», миграции [`db/migrations/1.0.0/shop.php`](db/migrations/1.0.0/shop.php) и [`db/migrations/1.0.1/auth.php`](db/migrations/1.0.1/auth.php) |
 | **Веб-интерфейс:** Volt + **Vue 3** | `app/Views/index.volt` + `public/assets/*.js`; запросы списка товаров — **Composition API** (`setup` в `app.js` / `ProductsPanel.js`) |
 | **Документация** | Этот README: запуск, возможности, curl, агрегаты, индексы; OpenAPI в `/api/docs` |
 
@@ -96,17 +96,42 @@ docker compose up --build
 сбросить данные MySQL: `docker compose down -v` и снова `docker compose up`
 (том `mysql_data` удаляется, миграции накатываются на пустую БД).
 
-### Демо-токен
+### Авторизация
 
-Для быстрого старта в БД уже есть токен:
+В системе два способа получить Bearer-токен:
 
-```text
-demo-token-please-change
+1. **Логин админа (для SPA).** При открытии `/` показывается экран входа.
+   После `POST /api/auth/login` с парой `login` + `password` сервер возвращает
+   `accessToken` (короткоживущий, по умолчанию 15 мин) и одноразовый
+   `refreshToken` (по умолчанию 14 дней). SPA хранит их в `localStorage`,
+   подставляет access в `Authorization`, а на любую `401` от защищённой
+   ручки автоматически вызывает `POST /api/auth/refresh` и повторяет запрос.
+2. **Статический демо-токен `demo-token-please-change`** — строка в
+   `api_tokens` с `user_id IS NULL` и `expires_at IS NULL`. Удобен для curl
+   и Swagger UI; для админ-панели не используется. В продакшене удалите его
+   или замените на свой.
+
+Сидируемая учётка задаётся через `.env`: `ADMIN_LOGIN`, `ADMIN_PASSWORD`
+(дефолт `admin` / `admin`). Миграция `1.0.1` хеширует пароль `password_hash`
+и кладёт строку в `users`. Сроки жизни токенов — `ACCESS_TOKEN_TTL` и
+`REFRESH_TOKEN_TTL` (секунды).
+
+```bash
+# Получить пару
+curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"login":"admin","password":"admin"}' \
+  http://localhost:8080/api/auth/login
+# {"accessToken":"…","refreshToken":"…","tokenType":"Bearer","expiresIn":900}
+
+# Защищённый запрос с access
+curl -s -H "Authorization: Bearer <accessToken>" \
+  http://localhost:8080/api/products
+
+# Ротация (старый refresh уничтожается)
+curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"refreshToken":"<refreshToken>"}' \
+  http://localhost:8080/api/auth/refresh
 ```
-
-Вставьте его в поле в боковой панели веб-интерфейса или передавайте в
-заголовке `Authorization: Bearer …` в HTTP-запросах. В продакшене замените на
-свой секрет.
 
 ## API
 
@@ -125,6 +150,8 @@ demo-token-please-change
 | GET    | `/api/health` | Проверка жизнеспособности (без токена). |
 | GET    | `/api/docs/openapi.json` | Спецификация OpenAPI 3. |
 | GET    | `/api/docs` | Swagger UI. |
+| POST   | `/api/auth/login` | Логин админа: `login`, `password` → пара токенов. |
+| POST   | `/api/auth/refresh` | Ротация: `refreshToken` → новая пара. |
 | GET    | `/api/products` | Список: пагинация, фильтры, агрегаты. |
 | GET    | `/api/products/{id}` | Один товар. |
 | POST   | `/api/products` | Создание товара. |
@@ -271,6 +298,14 @@ ORDER BY p.id ASC LIMIT ? OFFSET ?
 ### `api_tokens.token` — уникальный
 
 Поиск токена в каждом запросе с авторизацией — O(log n), дубликатов нет.
+Дополнительно есть индекс по `expires_at` (учётный) и FK на `users.id`,
+чтобы выдача и ревокация access-токенов попадали в индекс.
+
+### `users.login` и `refresh_tokens.token` — уникальные
+
+`users.login` обеспечивает однократность аккаунтов, `refresh_tokens.token` —
+поиск активного refresh за один index seek; `expires_at` индексирован для
+фильтрации актуальных строк, `user_id` — для каскадного удаления.
 
 ## Структура репозитория
 
@@ -290,6 +325,7 @@ public/
   index.php
   assets/                  Vue, стили, компоненты
 db/migrations/1.0.0/       схема и демо-данные (shop)
+db/migrations/1.0.1/       пользователи, refresh_tokens, расширение api_tokens
 docker/
 docker-compose.yml
 ```

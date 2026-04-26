@@ -38,6 +38,17 @@ return static function (DiInterface $di): void {
             'action'     => 'ui',
         ]);
 
+        $router->addPost('/api/auth/login', [
+            'namespace'  => 'App\\Controllers\\Api',
+            'controller' => 'auth',
+            'action'     => 'login',
+        ]);
+        $router->addPost('/api/auth/refresh', [
+            'namespace'  => 'App\\Controllers\\Api',
+            'controller' => 'auth',
+            'action'     => 'refresh',
+        ]);
+
         $router->addGet('/api/products', [
             'namespace'  => 'App\\Controllers\\Api',
             'controller' => 'products',
