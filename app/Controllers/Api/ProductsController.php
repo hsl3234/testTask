@@ -26,9 +26,9 @@ final class ProductsController extends BaseApiController
         tags: ['Products'],
         parameters: [
             new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, default: 1)),
-            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100, default: 20)),
-            new OA\Parameter(name: 'category_id', in: 'query', required: false, description: 'Filter by category id including its whole subtree.', schema: new OA\Schema(type: 'integer', minimum: 1)),
-            new OA\Parameter(name: 'in_stock', in: 'query', required: false, schema: new OA\Schema(type: 'boolean')),
+            new OA\Parameter(name: 'perPage', in: 'query', required: false, description: 'Also accepted: per_page', schema: new OA\Schema(type: 'integer', minimum: 1, maximum: 100, default: 20)),
+            new OA\Parameter(name: 'categoryId', in: 'query', required: false, description: 'Filter by category id (whole subtree). Also: category_id', schema: new OA\Schema(type: 'integer', minimum: 1)),
+            new OA\Parameter(name: 'inStock', in: 'query', required: false, description: 'Also: in_stock', schema: new OA\Schema(type: 'boolean')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'OK', content: new OA\JsonContent(ref: '#/components/schemas/ProductListResponse')),

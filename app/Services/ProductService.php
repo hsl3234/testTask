@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Exceptions\NotFoundException;
 use App\Exceptions\ValidationException;
+use App\Http\RequestKeys;
 use App\Repositories\CategoryRepository;
 use App\Repositories\ProductRepository;
 
@@ -51,14 +52,15 @@ final class ProductService
      *     data: list<array<string, mixed>>,
      *     meta: array{
      *         page: int,
-     *         per_page: int,
+     *         perPage: int,
      *         total: int,
-     *         aggregates: array{in_stock_count: int, in_stock_total_price: string}
+     *         aggregates: array{inStockCount: int, inStockTotalPrice: string}
      *     }
      * } Response envelope ready for JSON serialization.
      */
     public function paginate(array $query): array
     {
+        $query = RequestKeys::mergeQueryInput($query);
         $page = $this->positiveInt($query['page'] ?? 1, 'page', 1);
         $perPage = $this->positiveInt($query['per_page'] ?? self::DEFAULT_PER_PAGE, 'per_page', self::DEFAULT_PER_PAGE);
         if ($perPage > self::MAX_PER_PAGE) {
@@ -74,11 +76,11 @@ final class ProductService
             'data' => array_map([$this, 'presentRow'], $result['items']),
             'meta' => [
                 'page'     => $page,
-                'per_page' => $perPage,
+                'perPage'  => $perPage,
                 'total'    => $result['total'],
                 'aggregates' => [
-                    'in_stock_count'       => $aggregates['count'],
-                    'in_stock_total_price' => $aggregates['total_price'],
+                    'inStockCount'     => $aggregates['count'],
+                    'inStockTotalPrice' => $aggregates['total_price'],
                 ],
             ],
         ];
@@ -218,6 +220,7 @@ final class ProductService
      */
     private function validate(array $input, bool $create): array
     {
+        $input = RequestKeys::mergeJsonInput($input);
         $errors = [];
         $out = [];
 
@@ -336,11 +339,11 @@ final class ProductService
     private function presentRow(array $row): array
     {
         return [
-            'id'       => (int) $row['id'],
-            'name'     => (string) $row['name'],
-            'content'  => $row['content'] !== null ? (string) $row['content'] : null,
-            'price'    => number_format((float) $row['price'], 2, '.', ''),
-            'in_stock' => (bool) $row['in_stock'],
+            'id'      => (int) $row['id'],
+            'name'    => (string) $row['name'],
+            'content' => $row['content'] !== null ? (string) $row['content'] : null,
+            'price'   => number_format((float) $row['price'], 2, '.', ''),
+            'inStock' => (bool) $row['in_stock'],
             'category' => [
                 'id'   => (int) $row['category_id'],
                 'name' => (string) ($row['category_name'] ?? ''),

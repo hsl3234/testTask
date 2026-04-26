@@ -11,13 +11,13 @@ Volt и одностраничное приложение на Vue 3 (Compositio
 
 | Требование | Реализация |
 | ---------- | ---------- |
-| Список товаров с **постраничной пагинацией** | `GET /api/products` — параметры `page`, `per_page` |
-| **Иерархия категорий** | Таблица `categories` (`parent_id`, материализованный `path`), фильтр по поддереву по `category_id` |
-| Поля в списке: **название, содержание, цена, категория, наличие** | В JSON: `name`, `content`, `price`, объект `category` (`id`, `name`, `path`), `in_stock` |
-| **Фильтры:** категория, `in_stock` | Query: `category_id` (поддерево), `in_stock` |
-| **Агрегаты** по товарам в наличии: количество и сумма | `meta.aggregates.in_stock_count`, `in_stock_total_price`; учитываются те же фильтры, считаются только `in_stock = true` (см. раздел «Семантика агрегатов») |
+| Список товаров с **постраничной пагинацией** | `GET /api/products` — `page`, `perPage` (также `per_page`) |
+| **Иерархия категорий** | В БД: `parent_id`, `path`; в JSON — `parentId` и `path`, фильтр по поддереву `categoryId` |
+| Поля в списке: **название, содержание, цена, категория, наличие** | В JSON (camelCase): `name`, `content`, `price`, `inStock`, `category` { `id`, `name`, `path` } |
+| **Фильтры:** категория, наличие | Query: `categoryId` или `category_id`, `inStock` или `in_stock` |
+| **Агрегаты** по товарам в наличии: количество и сумма | `meta.aggregates.inStockCount`, `inStockTotalPrice`; те же фильтры, в подсчёте только `inStock = true` (см. «Семантика агрегатов») |
 | **CRUD товаров** | `GET/POST/PUT/DELETE /api/products`, `GET /api/products/{id}` |
-| **CRUD категорий** (в т.ч. подкатегории) | `GET/POST/PUT/DELETE /api/categories`, `parent_id` при создании/смене родителя |
+| **CRUD категорий** (в т.ч. подкатегории) | `GET/POST/PUT/DELETE /api/categories`, в JSON — `parentId` (алиас: `parent_id`) |
 | **Bearer Token** | Заголовок `Authorization: Bearer <token>`, таблица `api_tokens` |
 | **Ошибки и HTTP-коды**, ответы **JSON** | Единый формат `error`, коды 401/404/409/422 и др.; `Content-Type: application/json` |
 | **MySQL**, **индексы** под фильтры и пагинацию | См. раздел «База данных и индексы», миграция [`db/migrations/1.0.0/shop.php`](db/migrations/1.0.0/shop.php) |
@@ -47,7 +47,7 @@ Volt и одностраничное приложение на Vue 3 (Compositio
 ## Возможности
 
 - Список товаров с пагинацией, фильтрами по категории (с учётом поддерева) и
-  признаку `in_stock`.
+  признаку наличия (`inStock` в query/ответе).
 - В каждом ответе списка — агрегаты: количество и суммарная стоимость **только
   товаров в наличии**, с теми же фильтрами, что и у выборки.
 - CRUD по товарам и по дереву категорий; удаление категории с детьми или
@@ -110,10 +110,12 @@ demo-token-please-change
 
 ## API
 
-Все ответы — в формате JSON. Тело ошибки:
+Все ответы — JSON; **имена полей в ответах — camelCase** (например `inStock`, `perPage`, `inStockCount`). В запросе (query и body) принимаются **camelCase**; для обратной совместимости также **snake_case** (`in_stock`, `per_page`, `category_id` и т.д.).
+
+Тело ошибки:
 
 ```json
-{ "error": { "message": "…", "errors": { "поле": "причина" } } }
+{ "error": { "message": "…", "errors": { "полеCamelCase": "причина" } } }
 ```
 
 ### Маршруты
@@ -141,19 +143,19 @@ BASE=http://localhost:8080/api
 
 # Список ноутбуков в наличии
 curl -s -H "Authorization: Bearer $TOKEN" \
-  "$BASE/products?category_id=3&in_stock=1&page=1&per_page=10"
+  "$BASE/products?categoryId=3&inStock=1&page=1&perPage=10"
 
 # Фильтр по родительской категории (поддерево): "Electronics" (id=1)
-curl -s -H "Authorization: Bearer $TOKEN" "$BASE/products?category_id=1&per_page=50"
+curl -s -H "Authorization: Bearer $TOKEN" "$BASE/products?categoryId=1&perPage=50"
 
 # Создать товар
 curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"New phone","content":"Latest model","price":799.0,"in_stock":true,"category_id":5}' \
+  -d '{"name":"New phone","content":"Latest model","price":799.0,"inStock":true,"categoryId":5}' \
   "$BASE/products"
 
 # Частичное обновление
 curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"price":749.5,"in_stock":false}' \
+  -d '{"price":749.5,"inStock":false}' \
   "$BASE/products/1"
 
 # Удалить товар
@@ -164,7 +166,7 @@ curl -s -H "Authorization: Bearer $TOKEN" "$BASE/categories?tree=1"
 
 # Подкатегория
 curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"Gaming laptops","parent_id":3}' \
+  -d '{"name":"Gaming laptops","parentId":3}' \
   "$BASE/categories"
 
 # Без токена
@@ -175,7 +177,7 @@ curl -i "$BASE/products"
 
 ### Пример ответа: список товаров с пагинацией и агрегатами
 
-Запрос: `GET /api/products?page=1&per_page=2` с заголовком `Authorization: Bearer <token>`.
+Запрос: `GET /api/products?page=1&perPage=2` с заголовком `Authorization: Bearer <token>`.
 
 ```json
 {
@@ -185,7 +187,7 @@ curl -i "$BASE/products"
       "name": "ThinkPad X1",
       "content": "14\" business laptop",
       "price": "1899.00",
-      "in_stock": true,
+      "inStock": true,
       "category": {
         "id": 3,
         "name": "Laptops",
@@ -195,11 +197,11 @@ curl -i "$BASE/products"
   ],
   "meta": {
     "page": 1,
-    "per_page": 2,
+    "perPage": 2,
     "total": 8,
     "aggregates": {
-      "in_stock_count": 6,
-      "in_stock_total_price": "5285.89"
+      "inStockCount": 6,
+      "inStockTotalPrice": "5285.89"
     }
   }
 }
@@ -213,7 +215,7 @@ curl -i "$BASE/products"
 | 201 | Успешный POST (создан ресурс). |
 | 204 | Успешный DELETE (без тела). |
 | 401 | Нет / неверный / неизвестный Bearer-токен. |
-| 404 | Ресурс не найден (в т.ч. несуществующий `category_id` в фильтре). |
+| 404 | Ресурс не найден (в т.ч. несуществующий `categoryId` в фильтре). |
 | 409 | Конфликт (нельзя удалить непустую категорию, некорректный перенос и т.п.). |
 | 422 | Ошибка валидации; в `error.errors` — причины по полям. |
 | 500 | Внутренняя ошибка (детали — только при `APP_ENV=dev`). |
@@ -221,13 +223,13 @@ curl -i "$BASE/products"
 ### Семантика агрегатов
 
 Блок `meta.aggregates` применяет **те же фильтры**, что и список (поддерево
-категории и, если передан, `in_stock`), но для подсчёта **учитываются только
-строки с `in_stock = true`**.
+категории и, если передан, `inStock` / `in_stock`), но для подсчёта **учитываются только
+строки с `inStock = true` в ответе** (в БД — `in_stock = 1`).
 
-- Без параметра `in_stock` в агрегатах — только в наличии в рамках остальных
+- Без параметра наличия в агрегатах — только в наличии в рамках остальных
   фильтров.
-- С `in_stock=1` список и агрегаты согласованы.
-- С `in_stock=0` в списке — товары не в наличии, а `in_stock_count` = 0 и сумма
+- С `inStock=1` список и агрегаты согласованы.
+- С `inStock=0` в списке — товары не в наличии, а `inStockCount` = 0 и сумма
   `"0.00"` — ожидаемое поведение.
 
 ## База данных и индексы
